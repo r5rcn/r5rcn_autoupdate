@@ -65,3 +65,49 @@ def unzip_update():
 def delete_update():
         os.remove('update.zip')
         shutil.rmtree('update')
+#下面是主程序
+#下载元数据
+if download_metadata():
+    print('Successfully downloaded metadata')
+else:
+    print('Failed while downloading metadata')
+    sys.exit(1)
+#读取元数据
+with open('metadata.json', 'r') as f:
+    json_data = json.load(f)
+#检查更新
+if check_update() == True:
+    print('Update available')
+elif check_update() == False:
+    print('No update available')
+    sys.exit(1)
+else:
+    print('Error while checking update')
+    sys.exit(1)
+#下载更新包
+if download_update():
+    print('successfully downloaded update package')
+else:
+    print('failed to download update package')
+    print('exiting...')
+    time.sleep(5000)
+    sys.exit(1)
+#校验包
+if check_updatesum():
+    print('successfully checked update package')
+else:
+    print('failed to check update package')
+    print('exiting...')
+    time.sleep(5000)
+    sys.exit(1)
+#解压更新包
+unzip_update()
+#覆盖文件
+shutil.rmtree('update')
+shutil.copytree('update', '.')
+#删除更新包
+delete_update()
+#更新版本号
+with open('game_version.txt', 'w') as f:
+    f.write(json_data['VERSION'])
+sys.exit(0)
