@@ -1,58 +1,86 @@
-def check_update():
+import json
+import os
+import shutil
+import hashlib
+import requests
+from datetime import datetime
+import sys
+import zipfile
+
+METADATA_URL = 'https://nwo.ink/metadata.json'
+UPDATE_FILE = 'update.zip'
+
+def download_file(url, filename):
+    try:
+        r = requests.get(url)
+        r.raise_for_status()
+        with open(filename, 'wb') as f:
+            f.write(r.content)
+    except requests.RequestException as e:
+        raise SystemExit(f"Error downloading file: {e}")
+
+def load_metadata(filename):
+    try:
+        with open(filename, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError as e:
+        raise SystemExit(f"Error loading metadata: {e}")
+
+def check_update(game_version, new_version):
+    game_version = datetime.strptime(game_version.strip()[1:], "%Y.%m.%d")
+    new_version = datetime.strptime(new_version[1:], "%Y.%m.%d")
+    return new_version > game_version
+
+def check_updatesum(filename, sha256):
+    with open(filename, 'rb') as f:
+        file_sha256 = hashlib.sha256(f.read()).hexdigest()
+    return file_sha256 == sha256
+
+def unzip_update(filename, target_dir):
+    with zipfile.ZipFile(filename, 'r') as zip_ref:
+        zip_ref.extractall(target_dir)
+
+def replace_files(source_dir, target_dir):
+    shutil.rmtree(target_dir, ignore_errors=True)
+    shutil.copytree(source_dir, target_dir)
+
+def main():
+    # Load local game version
     try:
         with open('game_version.txt', 'r') as f:
-            game_version_str = f.read().strip()[1:]  # remove 'v' and strip whitespace
-            game_version = datetime.strptime(game_version_str, "%Y.%m.%d")
-        new_version_str = json_data['VERSION'][1:]  # remove 'v'
-        new_version = datetime.strptime(new_version_str, "%Y.%m.%d")
-        return new_version > game_version
-    except Exception as e:
-        print(f"Error checking update: {e}")
-        raise  # 错误时抛出异常
+            game_version = f.read()
+    except FileNotFoundError as e:
+        raise SystemExit(f"Error loading game version: {e}")
 
-def unzip_update():
-    with zipfile.ZipFile('update.zip', 'r') as zip_ref:
-        zip_ref.extractall('.')
-    os.remove('update.zip')
+    # Download and load metadata
+    download_file(METADATA_URL, 'metadata.json')
+    metadata = load_metadata('metadata.json')
 
-def delete_update():
-    os.remove('update.zip')
+    # Check for update
+    if not check_update(game_version, metadata['VERSION']):
+        print('No update available')
+        return
 
-# 下面是主程序
-# 下载元数据
-if not download_metadata():
-    print('Failed while downloading metadata')
-    sys.exit(1)
+    # Download update
+    download_file(metadata['DLINK'], UPDATE_FILE)
 
-# 读取元数据
-with open('metadata.json', 'r') as f:
-    json_data = json.load(f)
+    # Check update integrity
+    if not check_updatesum(UPDATE_FILE,metadata['PACKSHA256']):
+        raise SystemExit("Update package failed integrity check")
 
-# 检查更新
-try:
-    update_needed = check_update()
-except Exception:
-    sys.exit(2)  # 错误代码2代表检查更新时出错
+    # Extract update
+    unzip_update(UPDATE_FILE, 'update')
 
-if not update_needed:
-    print('No update available')
-    sys.exit(0)
+    # Replace files
+    replace_files('update', '.')
 
-# 下载更新包
-if not download_update():
-    print('Failed to download update package')
-    sys.exit(1)
+    # Delete update files
+    shutil.rmtree('update', ignore_errors=True)
+    os.remove(UPDATE_FILE)
 
-# 校验包
-if not check_updatesum():
-    print('Failed to check update package')
-    sys.exit(1)
+    # Update version file
+    with open('game_version.txt', 'w') as f:
+        f.write(metadata['VERSION'])
 
-# 解压更新包并覆盖文件
-unzip_update()
-
-# 更新版本号
-with open('game_version.txt', 'w') as f:
-    f.write(json_data['VERSION'])
-
-sys.exit(0)
+if __name__ == "__main__":
+    main()
