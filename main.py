@@ -1,113 +1,58 @@
-#版本号采用日期形式，检查元数据中的版本号是不是比本地game_version.txt中的版本号高，如果高则更新，如果低或者相等则不更新，写在函数check_update中
-#先从元数据服务器下载元数据（json），然后再从服务器下载更新包，校验包，解压更新包，替换文件，删除更新包
-#更新包的下载链接包含在元数据中DLINK字段，元数据的下载链接包含在主程序中
-import json
-#导入7z压缩包解压模块
-import py7zr
-import os
-import shutil
-import hashlib
-import requests
-from datetime import datetime
-import time
-import sys
-import subprocess
-import zipfile
-#从元数据服务器下载元数据（json）,让文件可被"metadata"调用，如果有错误则返回错误信息
-def download_metadata():
-    try:
-        r = requests.get('https://nwo.ink/metadata.json')
-        with open('metadata.json', 'wb') as f:
-            f.write(r.content)
-            #返回True表示下载成功
-            return True
-    except:
-        #返回False表示下载失败
-        return False
-#从服务器下载更新包，文件为zip格式，如果有错误则返回错误信息，下载链接包含在元数据中DLINK字段
-def download_update():
-    try:
-        r = requests.get(json_data['DLINK'])
-        with open('update.zip', 'wb') as f:
-            f.write(r.content)
-            #返回True表示下载成功
-            return True
-    except:
-        #返回False表示下载失败
-        return False
-#版本号是日期形式，检查元数据中的版本号是不是比本地game_version.txt中的版本号高，如果高则更新，如果低或者相等则不更新，写在函数check_update中
 def check_update():
     try:
         with open('game_version.txt', 'r') as f:
-            game_version_str = f.read().strip()[1:] # remove 'v' and strip whitespace
+            game_version_str = f.read().strip()[1:]  # remove 'v' and strip whitespace
             game_version = datetime.strptime(game_version_str, "%Y.%m.%d")
-        new_version_str = json_data['VERSION'][1:] # remove 'v'
+        new_version_str = json_data['VERSION'][1:]  # remove 'v'
         new_version = datetime.strptime(new_version_str, "%Y.%m.%d")
         return new_version > game_version
     except Exception as e:
         print(f"Error checking update: {e}")
-        return 2  # 错误代码2代表error，需要在main中处理
-#校验包,包SHA256校验码包含在元数据中PACKSHA256字段
-def check_updatesum():
-        with open('update.zip', 'rb') as f:
-            update_sha256 = hashlib.sha256(f.read()).hexdigest()
-        if update_sha256 == json_data['PACKSHA256']:
-            return True
-        else:
-            return False
-#解压更新包并覆盖所有文件
+        raise  # 错误时抛出异常
+
 def unzip_update():
-        with zipfile.ZipFile('update.zip', 'r') as zip_ref:
-            zip_ref.extractall('update')
-        shutil.rmtree('update.zip')
-        shutil.rmtree('update')
-#删除更新包
+    with zipfile.ZipFile('update.zip', 'r') as zip_ref:
+        zip_ref.extractall('.')
+    os.remove('update.zip')
+
 def delete_update():
-        os.remove('update.zip')
-        shutil.rmtree('update')
-#下面是主程序
-#下载元数据
-if download_metadata():
-    print('Successfully downloaded metadata')
-else:
+    os.remove('update.zip')
+
+# 下面是主程序
+# 下载元数据
+if not download_metadata():
     print('Failed while downloading metadata')
     sys.exit(1)
-#读取元数据
+
+# 读取元数据
 with open('metadata.json', 'r') as f:
     json_data = json.load(f)
-#检查更新
-if check_update() == True:
-    print('Update available')
-elif check_update() == False:
+
+# 检查更新
+try:
+    update_needed = check_update()
+except Exception:
+    sys.exit(2)  # 错误代码2代表检查更新时出错
+
+if not update_needed:
     print('No update available')
+    sys.exit(0)
+
+# 下载更新包
+if not download_update():
+    print('Failed to download update package')
     sys.exit(1)
-else:
-    print('Error while checking update')
+
+# 校验包
+if not check_updatesum():
+    print('Failed to check update package')
     sys.exit(1)
-#下载更新包
-if download_update():
-    print('successfully downloaded update package')
-else:
-    print('failed to download update package')
-    print('exiting...')
-    time.sleep(5000)
-    sys.exit(1)
-#校验包
-if check_updatesum():
-    print('successfully checked update package')
-else:
-    print('failed to check update package')
-    print('exiting...')
-    time.sleep(5000)
-    sys.exit(1)
-#解压更新包
+
+# 解压更新包并覆盖文件
 unzip_update()
-#覆盖文件
-shutil.rmtree('update')
-shutil.copytree('update', '.')
-#删除更新包
-delete_update()
-#更新版本号
+
+# 更新版本号
 with open('game_version.txt', 'w') as f:
     f.write(json_data['VERSION'])
+
 sys.exit(0)
