@@ -8,7 +8,10 @@ import sys
 import zipfile
 
 METADATA_URL = 'https://nwo.ink/metadata.json'
-UPDATE_FILE = 'update.zip'
+#update_file的文件名在metadata.json中updfilename字段定义,需要从中读取
+UPDATE_FILE = with open('metadata.json', 'r') as f:
+    metadata = json.load(f)
+    UPDATE_FILE = metadata['updfilename']
 
 def download_file(url, filename):
     try:
@@ -26,9 +29,7 @@ def load_metadata(filename):
     except FileNotFoundError as e:
         raise SystemExit(f"Error loading metadata: {e}")
 
-def check_update(game_version, new_version):
-    game_version = datetime.strptime(game_version.strip()[1:], "%Y.%m.%d")
-    new_version = datetime.strptime(new_version[1:], "%Y.%m.%d")
+def check_update(game_version, new_version):#检查元数据中latestversioncode是不是比本地game_version.txt中的版本号大
     return new_version > game_version
 
 def check_updatesum(filename, sha256):
