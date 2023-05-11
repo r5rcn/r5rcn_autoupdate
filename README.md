@@ -1,2 +1,2 @@
 # r5r_autoupdate
-一个自动更新r5reloaded的小python程序
+一个自动更新r5reloaded depot的小python程序
