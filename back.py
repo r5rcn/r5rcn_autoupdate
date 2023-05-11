@@ -7,6 +7,7 @@ from datetime import datetime
 import sys
 import zipfile
 import uuid
+from pySmartDL import SmartDL
 import ctypes
 from tqdm import tqdm
 
@@ -46,6 +47,25 @@ def download_file(url, filename):
         print(f"Failed to download file from {url}. Error: {err}")
         return False
     return True
+
+def download_update(metadata):
+    urls = [metadata['1drv'], metadata['1drvback'], metadata['github']]
+    for url in urls:
+        try:
+            print(f"Trying to download file from {url}...")
+            obj = SmartDL(url)
+            obj.start()
+            while not obj.isFinished():
+                progress_bar = tqdm(total=obj.filesize, unit='B', unit_scale=True)
+                progress_bar.update(obj.get_dl_size())
+            print(f"\nDownloaded file {obj.get_dest()}")
+            return True
+        except Exception as err:
+            print(f"Failed to download file from {url}. Error: {err}")
+            continue
+    print("Failed to download file from all URLs.")
+    return False
+
 
 def load_json(filename):
     try:
@@ -123,8 +143,9 @@ else:
     # 下面这句没用，但是不加会报错
     block=0
 def main():
-    # Download and load metadata
-    download_file(METADATA_URL, 'metadata.json')
+    # Download metadata
+    
+    download_file(METADATA_URL,'metadata.json')
     metadata = load_json('metadata.json')
     # Load local game version
     game_version = load_game_version()
@@ -137,11 +158,9 @@ def main():
     print("New update available. Downloading...")
     # Download the update
     update_file = metadata['updfilename']
-    if not download_file(metadata['github'], update_file):
-        print("Failed to download from OneDrive1. Trying OneDrive...")
-        if not download_file(metadata['1drv'], update_file):
-            print("Failed to download update. Exiting...")
-            sys.exit(1)
+    if not download_update(metadata):
+        print("Update download failed.")
+        sys.exit(1)
 
     # Check the update package
     if not check_sha256(update_file, metadata['SHA256']):
