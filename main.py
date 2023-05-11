@@ -177,8 +177,9 @@ def main():
     # Update the updater itself if needed
     update_self(metadata)
     #restore_hosts()
+    os.remove('metadata.json')
+    os.remove(update_file)
     print("Update complete.")
 
 if __name__ == "__main__":
     main()
-
