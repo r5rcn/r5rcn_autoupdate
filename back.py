@@ -114,12 +114,14 @@ def update_self(metadata):
 
 if is_admin():
     metadata = load_json('metadata.json')
-    modify_hosts(metadata['1drvip'], "nyaamo-my.sharepoint.com")
-    modify_hosts(metadata['githubip'], "objects.githubusercontent.com")
+    #modify_hosts(metadata['1drvip'], "nyaamo-my.sharepoint.com")
+    #modify_hosts(metadata['githubip'], "objects.githubusercontent.com")
     pass
 else:
     # Re-run the program with admin rights
-    ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
+    # ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
+    # 下面这句没用，但是不加会报错
+    block=0
 def main():
     # Download and load metadata
     download_file(METADATA_URL, 'metadata.json')
@@ -136,7 +138,7 @@ def main():
     # Download the update
     update_file = metadata['updfilename']
     if not download_file(metadata['github'], update_file):
-        print("Failed to download from github. Trying OneDrive...")
+        print("Failed to download from OneDrive1. Trying OneDrive...")
         if not download_file(metadata['1drv'], update_file):
             print("Failed to download update. Exiting...")
             sys.exit(1)

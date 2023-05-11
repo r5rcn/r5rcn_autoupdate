@@ -2,11 +2,11 @@
 "SHA256":"f31041d7d10d434a2ab5aea3f2857f960ca7c1b04ac6caaa3b6f39b966caafb6",
 "1drvip":"13.107.136.8",
 "githubip":"185.199.110.133",
-"1drv":"https://nyaamo-my.sharepoint.com/personal/admin_nyaamo_onmicrosoft_com/_layouts/15/download.aspx?SourceUrl=%2Fpersonal%2Fadmin%5Fnyaamo%5Fonmicrosoft%5Fcom%2FDocuments%2FCN%2Edepot%2E20230511%5F1%2Ezip",
-"github":"https://objects.githubusercontent.com/github-production-release-asset-2e65be/626971609/7e060137-bec4-43ff-b168-605271e03e0a?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIWNJYAX4CSVEH53A%2F20230511%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20230511T165704Z&X-Amz-Expires=300&X-Amz-Signature=e0bc6acc135d64e422202fdd5d3e95719245fb4216ba5a1227fd711ef24e5e94&X-Amz-SignedHeaders=host&actor_id=100848181&key_id=0&repo_id=626971609&response-content-disposition=attachment%3B%20filename%3DCN.depot.20230511_1.zip&response-content-type=application%2Foctet-stream",
+"1drv":"https://nyaamo-my.sharepoint.com/personal/admin_nyaamo_onmicrosoft_com/_layouts/52/download.aspx?share=ETU7kHKBaONDuvTcxK1X-doBDjmAc_cmEkj5_ICnT5phAw",
+"github":"https://objects.githubusercontent.com/github-production-release-asset-2e65be/626971609/7e060137-bec4-43ff-b168-605271e03e0a?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIWNJYAX4CSVEH53A%2F20230511%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20230511T182854Z&X-Amz-Expires=300&X-Amz-Signature=01cbc2643752a21e4460fa12bb1f01f8924e63864afbd7f2d53c061d7ba34967&X-Amz-SignedHeaders=host&actor_id=100848181&key_id=0&repo_id=626971609&response-content-disposition=attachment%3B%20filename%3DCN.depot.20230511_1.zip&response-content-type=application%2Foctet-stream",
 "latestversion":"230511_1",
-"latestversioncode":"230511",
+"latestversioncode":"2305111",
 "programneedupdate":"false",
-"updfilename":"CN.depot.20230511_1.zip",
-"priority":"1"
+"updfilename":"CN.depot.20230511_1.zip"
 }
+
