@@ -46,6 +46,19 @@ def replace_files(source_path, dest_path):
     shutil.rmtree(dest_path, ignore_errors=True)
     shutil.copytree(source_path, dest_path)
 
+def update_self(metadata):
+    if metadata['programneedupdate'].lower() == 'true':
+        with open('update.bat', 'w') as bat_file:
+            bat_file.write("""
+            @echo off
+            timeout /t 5 /nobreak
+            del updater.exe
+            move bin\\updater.exe .
+            del update.bat
+            """)
+        os.system('update.bat &')
+
+
 def main():
     # Download and load metadata
     download_file(METADATA_URL, 'metadata.json')
@@ -78,7 +91,7 @@ def main():
     game_version['version'] = metadata['latestversioncode']
     with open(GAME_VERSION_FILE, 'w') as out_file:
         json.dump(game_version, out_file)
-
+    update_self(metadata)
     print("Update complete.")
 
 if __name__ == "__main__":
