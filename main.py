@@ -179,6 +179,7 @@ def main():
     #restore_hosts()
     os.remove('metadata.json')
     os.remove(update_file)
+    shutil.rmtree('./update')
     print("Update complete.")
 
 if __name__ == "__main__":
