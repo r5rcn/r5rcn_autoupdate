@@ -7,6 +7,7 @@ from datetime import datetime
 import sys
 import zipfile
 import uuid
+from pySmartDL import SmartDL
 import ctypes
 from tqdm import tqdm
 
@@ -47,6 +48,26 @@ def download_file(url, filename):
         return False
     return True
 
+def download_update(metadata,dest_path='./'):
+    urls = [metadata['1drv'], metadata['1drvback'], metadata['github']]
+    for url in urls:
+        try:
+            print(f"Trying to download file from {url}...")
+            obj = SmartDL(url, dest=dest_path)
+            obj.start()
+            while not obj.isFinished():
+                progress_bar = tqdm(total=obj.filesize, unit='B', unit_scale=True)
+                progress_bar.update(obj.get_dl_size())
+            print(f"\nDownloaded file {obj.get_dest()}")
+            return True
+        except Exception as err:
+            print(f"Failed to download file from  {url}.Error: {err}")
+            continue
+    print("Failed to download file from all URLs.")
+    return False
+#能用就行,不要瞎改,改了又出问题
+#草，不能用
+
 def load_json(filename):
     try:
         with open(filename, 'r') as in_file:
@@ -67,20 +88,15 @@ def unzip_file(filename, path):
     with zipfile.ZipFile(filename, 'r') as zip_ref:
         zip_ref.extractall(path)
 
-def replace_files(source_path, dest_path):
-    # Iterate over all files in source directory
-    for subdir, dirs, files in os.walk(source_path):
+
+def replace_files(source_dir, dest_dir):
+    for root, dirs, files in os.walk(source_dir):
         for file in files:
-            src_file_path = os.path.join(subdir, file)
-            dst_file_path = os.path.join(dest_path, src_file_path.replace(source_path, ""))
-            dst_file_dir = os.path.dirname(dst_file_path)
-            
-            # If destination directory does not exist, create it
-            if not os.path.exists(dst_file_dir):
-                os.makedirs(dst_file_dir)
-            
-            # Copy source file to destination directory
-            shutil.copy2(src_file_path, dst_file_path)
+            src_file = os.path.join(root, file)
+            dst_file = os.path.join(dest_dir, os.path.relpath(src_file, source_dir))
+            os.makedirs(os.path.dirname(dst_file), exist_ok=True)
+            shutil.copy2(src_file, dst_file)
+
 def modify_hosts(ip, domain):
     hosts_file_path = r"C:\\Windows\\System32\\drivers\\etc\\hosts"
     backup_hosts_file_path = r"C:\\Windows\\System32\\drivers\etc\\hosts.backup"
@@ -114,15 +130,17 @@ def update_self(metadata):
 
 if is_admin():
     metadata = load_json('metadata.json')
-    modify_hosts(metadata['1drvip'], "nyaamo-my.sharepoint.com")
-    modify_hosts(metadata['githubip'], "objects.githubusercontent.com")
+    #modify_hosts(metadata['1drvip'], "nyaamo-my.sharepoint.com")
+    #modify_hosts(metadata['githubip'], "objects.githubusercontent.com")
     pass
 else:
     # Re-run the program with admin rights
-    ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
+    # ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
+    # 下面这句没用，但是不加会报错
+    block=0
 def main():
-    # Download and load metadata
-    download_file(METADATA_URL, 'metadata.json')
+    # Download metadata
+    download_file(METADATA_URL,'metadata.json')
     metadata = load_json('metadata.json')
     # Load local game version
     game_version = load_game_version()
@@ -135,17 +153,17 @@ def main():
     print("New update available. Downloading...")
     # Download the update
     update_file = metadata['updfilename']
-    if not download_file(metadata['github'], update_file):
-        print("Failed to download from github. Trying OneDrive...")
-        if not download_file(metadata['1drv'], update_file):
-            print("Failed to download update. Exiting...")
-            sys.exit(1)
+    if not download_update(metadata,dest_path="./"+metadata['updfilename']):
+        print("Update download failed.")
+        sys.exit(1)
 
     # Check the update package
     if not check_sha256(update_file, metadata['SHA256']):
         print("Update package integrity check failed.")
         sys.exit(1)
         # Extract the update
+    else:
+        print("Update package integrity check passed. Extracting...")    
     unzip_file(update_file, './update')
 
     # Replace the old files with the new ones
