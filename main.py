@@ -6,6 +6,7 @@ import requests
 from datetime import datetime
 import sys
 import zipfile
+import time
 import uuid
 from pySmartDL import SmartDL
 import ctypes
@@ -23,6 +24,7 @@ def load_game_version():
             return int(in_file.read().strip())
     except FileNotFoundError as err:
         print(f"Game version file not found, creating one and set version to 0.")
+        print(f"游戏版本文件未找到,正在创建并设置版本为0.")
         with open(GAME_VERSION_FILE, 'w') as out_file:
             out_file.write('0')
         return 0
@@ -46,28 +48,40 @@ def download_file(url, filename):
             progress_bar.close()
     except requests.RequestException as err:
         print(f"Failed to download file from {url}. Error: {err}")
+        print(f"尝试从{url}下载文件失败. 错误: {err}")
         return False
     return True
+def check_files():
+    files_to_check = ["r5apex.exe"]
+
+    for file in files_to_check:
+        if not os.path.isfile(file):
+            print(f"Error: {file} not found. Please place the program in the game root directory.")
+            print(f"请将程序放在游戏根目录下.")
+            time.sleep(10)
+            sys.exit(1)
 
 def download_update(metadata,dest_path='./'):
     urls = [metadata['1drv'], metadata['1drvback'], metadata['github']]
     for url in urls:
         try:
             print(f"Trying to download file from {url}...")
+            print(f"尝试从{url}下载文件...")
             obj = SmartDL(url, dest=dest_path)
             obj.start()
             while not obj.isFinished():
                 progress_bar = tqdm(total=obj.filesize, unit='B', unit_scale=True)
                 progress_bar.update(obj.get_dl_size())
             print(f"\nDownloaded file {obj.get_dest()}")
+            print(f"从{url}下载文件成功")
             return True
         except Exception as err:
             print(f"Failed to download file from  {url}.Error: {err}")
+            print(f"尝试从{url}下载文件失败. 错误: {err}")
             continue
     print("Failed to download file from all URLs.")
+    print("所有下载途径均失败，请使用手动更新")
     return False
-#能用就行,不要瞎改,改了又出问题
-#草，不能用
 
 def load_json(filename):
     try:
@@ -75,6 +89,7 @@ def load_json(filename):
             return json.load(in_file)
     except FileNotFoundError as err:
         print(f"Failed to load json file {filename}. Error: {err}")
+        print("加载json文件失败. 错误: {err}")
         sys.exit(1)
 
 def check_update(version, latest_version):
@@ -140,6 +155,7 @@ else:
     # 下面这句没用，但是不加会报错
     block=0
 def main():
+    check_files()
     # Download metadata
     download_file(METADATA_URL,'metadata.json')
     metadata = load_json('metadata.json')
@@ -149,14 +165,17 @@ def main():
    # Check for updates
     if not check_update(game_version, metadata['latestversioncode']):
         print("No new updates.")
+        print("没有新的更新")
         os.remove('metadata.json')
         sys.exit(0)
 
     print("New update available. Downloading...")
+    print("新的更新可用,正在下载...")
     # Download the update
     update_file = metadata['updfilename']
     if not download_update(metadata,dest_path="./"+metadata['updfilename']):
         print("Update download failed.")
+        print("更新下载失败")
         sys.exit(1)
 
     # Check the update package
@@ -168,7 +187,8 @@ def main():
         sys.exit(1)
         # Extract the update
     else:
-        print("Update package integrity check passed. Extracting...")    
+        print("Update package integrity check passed. Extracting...")
+        print("更新包完整性检查通过,正在解压...")    
     unzip_file(update_file, './update')
 
     # Replace the old files with the new ones
@@ -186,6 +206,7 @@ def main():
     os.remove(update_file)
     shutil.rmtree('./update')
     print("Update complete.")
+    print("更新完成")
 
 if __name__ == "__main__":
     main()
