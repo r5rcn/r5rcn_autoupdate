@@ -11,7 +11,6 @@ import re
 from pySmartDL import SmartDL
 from tqdm import tqdm
 CALLBACK_INFO_FILE = 'callback_info.json'
-# URL for downloading metadata
 callback_info = {
         'clientip': "",
         'clientdepotver': "",
@@ -23,6 +22,7 @@ callback_info = {
         'currentupdaterversion': "",
         'cloudupdaterversion': ""
     }
+# URL for downloading metadata
 METADATA_URL = 'https://themea.eu.org/update/metadata.json'
 # Name of the file with the game version
 GAME_VERSION_FILE = 'gamever.txt'
@@ -120,6 +120,8 @@ def load_json(filename):
         print(f"Failed to load json file {filename}. Error: {err}")
         print("加载json文件失败. 错误: {err}")
         callback_info['status'] = "加载json文件失败"
+        write_callback_info(callback_info)
+        send_callback(CALLBACK_URL, callback_info)
         sys.exit(1)
 
 def check_update(version, latest_version):
@@ -165,15 +167,19 @@ def update_self(metadata):
     return False  # 如果不需要更新，返回 False
 def main():
     check_files()
+    callback_info={"status":"Invalid"}
     # Download metadata
+    print("下载元数据中...")
     download_file(METADATA_URL,'metadata.json')
     metadata = load_json('metadata.json')
     download_url = download_update(metadata, dest_path="./" + metadata['updfilename'])  # 获取使用的 URL
     if download_url is None:
         print("Update download failed.")
         print("更新下载失败(所有url都失败,请使用手动更新)")
-        sys.exit(1)
         callback_info['status'] = "所有url都失败"
+        write_callback_info(callback_info)
+        send_callback(CALLBACK_URL, callback_info)
+        sys.exit(1)
     # Load local game version
     game_version = load_game_version()
     updater_updated = update_self(metadata)
@@ -195,10 +201,8 @@ def main():
         print("没有新的更新")
         callback_info['status'] = "没有新的更新"
         os.remove('metadata.json')
-        sys.exit(0)
-        callback_info['compelete'] = True
-        callback_info['compeleteupdater'] = True
         write_callback_info(callback_info)
+        send_callback(CALLBACK_URL, callback_info)
         sys.exit(0)
     print("New update available. Downloading...")
     print("新的更新可用,正在下载...")
@@ -208,6 +212,8 @@ def main():
         print("Update download failed.")
         print("更新下载失败")
         callback_info['status'] = "更新下载失败"
+        write_callback_info(callback_info)
+        send_callback(CALLBACK_URL, callback_info)
         sys.exit(1)
     # Check the update package
     if not check_sha256(update_file, metadata['SHA256']):
@@ -215,6 +221,9 @@ def main():
         print("更新包完整性检查失败")
         os.remove('metadata.json')
         os.remove(update_file)
+        callback_info['status'] = "更新包完整性检查失败"
+        write_callback_info(callback_info)
+        send_callback(CALLBACK_URL, callback_info)
         shutil.rmtree('./update')
         sys.exit(1)
         # Extract the update
@@ -229,15 +238,13 @@ def main():
     with open(GAME_VERSION_FILE, 'w') as out_file:
         out_file.write(str(game_version))
     # Update the updater itself if needed
-    update_self(metadata)
-    callback_info['compelete'] = True
-    callback_info['compeleteupdater'] = True
     write_callback_info(callback_info)
     os.remove('metadata.json')
     os.remove(update_file)
     shutil.rmtree('./update')
     callback_info['status'] = "更新完成"
     send_callback(CALLBACK_URL, callback_info)
+    update_self(metadata)
     print("Update complete.")
     print("更新完成")
 if __name__ == "__main__":
