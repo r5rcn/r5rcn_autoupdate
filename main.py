@@ -122,9 +122,9 @@ def update_self(metadata):
             bat_file.write("""
             @echo off
             timeout /t 5 /nobreak
-            del updater.exe
-            move bin\\updater.exe .
-            del {}
+            del updater.exe 2>nul
+            move bin\\updater.exe . 2>nul
+            del update.bat 2>nul    
             """.format(bat_filename))
         os.system(bat_filename)
 
@@ -148,6 +148,7 @@ def main():
    # Check for updates
     if not check_update(game_version, metadata['latestversioncode']):
         print("No new updates.")
+        os.remove('metadata.json')
         sys.exit(0)
 
     print("New update available. Downloading...")
@@ -160,6 +161,9 @@ def main():
     # Check the update package
     if not check_sha256(update_file, metadata['SHA256']):
         print("Update package integrity check failed.")
+        os.remove('metadata.json')
+        os.remove(update_file)
+        shutil.rmtree('./update')
         sys.exit(1)
         # Extract the update
     else:
