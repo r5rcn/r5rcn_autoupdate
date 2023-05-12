@@ -22,10 +22,11 @@ def load_game_version():
         with open(GAME_VERSION_FILE, 'r') as in_file:
             return int(in_file.read().strip())
     except FileNotFoundError as err:
-        print(f"Failed to load game version. Error: {err}")
-        sys.exit(1)
-
-
+        print(f"Game version file not found, creating one and set version to 0.")
+        with open(GAME_VERSION_FILE, 'w') as out_file:
+            out_file.write('0')
+        return 0
+    
 def is_admin():
     try:
         return ctypes.windll.shell32.IsUserAnAdmin()
