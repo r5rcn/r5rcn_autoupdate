@@ -46,6 +46,17 @@ def load_game_version():
         with open(GAME_VERSION_FILE, 'w') as out_file:
             out_file.write('0')
         return 0
+def write_file(filename, line_number, content):
+    with open(filename, 'r') as in_file:
+        lines = in_file.readlines()
+    if line_number <= len(lines):
+        lines[line_number - 1] = content + '\n'
+    else:
+        for _ in range(line_number - len(lines)):
+            lines.append('0\n')
+        lines[line_number - 1] = content + '\n'
+    with open(filename, 'w') as out_file:
+        out_file.writelines(lines)
 def write_callback_info(data):
     try:
         with open(CALLBACK_INFO_FILE, 'w') as out_file:
@@ -136,14 +147,22 @@ def check_sha256(filename, sha256):
 def unzip_file(filename, path):
     with zipfile.ZipFile(filename, 'r') as zip_ref:
         zip_ref.extractall(path)
-def load_or_create_file(filename):
+def load_or_create_file(filename, line_number, metadata=None):
+    metadata = load_json('metadata.json')
     try:
         with open(filename, 'r') as in_file:
-            return in_file.read().strip()
+            lines = in_file.readlines()
+            if len(lines) >= line_number:
+                return lines[line_number - 1].strip()
+            else:
+                return "0"
     except FileNotFoundError as err:
-        print(f"{filename} not found, creating one and set content to 0.")
+        print(f"{filename} not found, creating one and setting content.")
         with open(filename, 'w') as out_file:
-            out_file.write('0')
+            if line_number == 1:
+                out_file.write('0\n')
+            else:
+                out_file.write(f"{metadata['updaterversion']}\n")
         return '0'
 
 def replace_files(source_dir, dest_dir):
@@ -173,30 +192,24 @@ def main():
     print("下载元数据中...")
     download_file(METADATA_URL,'metadata.json')
     metadata = load_json('metadata.json')
-    download_url = download_update(metadata, dest_path="./" + metadata['updfilename'])  # 获取使用的 URL
-    if download_url is None:
-        print("Update download failed.")
-        print("更新下载失败(所有url都失败,请使用手动更新)")
-        callback_info['status'] = "所有url都失败"
-        write_callback_info(callback_info)
-        send_callback(CALLBACK_URL, callback_info)
-        sys.exit(1)
+
     # Load local game version
-    game_version = load_game_version()
+    game_version = load_or_create_file(GAME_VERSION_FILE, 1)
     updater_updated = update_self(metadata)
     callback_info = {
         'clientip': get_public_ip(),
         'clientdepotver': game_version,
         'clouddepotver': metadata['latestversioncode'],
         'needupdateupdater': metadata['programneedupdate'].lower() == 'true',
-        'downloadfrom': download_url,  
+        'downloadfrom': "",  
         'status': "Invalid",  
         'compeleteupdater': updater_updated, 
-        'currentupdaterversion': load_or_create_file('./updver.txt'),
+        'currentupdaterversion': load_or_create_file(GAME_VERSION_FILE, 2, metadata),
         'cloudupdaterversion': metadata['updaterversion']
     }
     write_callback_info(callback_info)
-   # Check for updates
+
+    # Check for updates
     if not check_update(game_version, metadata['latestversioncode']):
         print("No new updates.")
         print("没有新的更新")
@@ -205,43 +218,59 @@ def main():
         write_callback_info(callback_info)
         send_callback(CALLBACK_URL, callback_info)
         sys.exit(0)
-    print("New update available. Downloading...")
-    print("新的更新可用,正在下载...")
-    # Download the update
+    
+    print("New update available. Checking for update package...")
+    print("新的更新可用,正在检查更新包...")
+    # Prepare for update
     update_file = metadata['updfilename']
-    # Check the update package
-    if not check_sha256(update_file, metadata['SHA256']):
-        print("Update package integrity check failed.")
-        print("更新包完整性检查失败")
-        os.remove('metadata.json')
-        os.remove(update_file)
-        callback_info['status'] = "更新包完整性检查失败"
-        write_callback_info(callback_info)
-        send_callback(CALLBACK_URL, callback_info)
-        sys.exit(1)
-        # Extract the update
+    download_url = None
+
+    # Check if update file already exists
+    if os.path.exists(update_file) and check_sha256(update_file, metadata['SHA256']):
+        print("Update package exists and integrity check passed.")
+        print("更新包已存在且完整性检查通过.")
     else:
-        print("Update package integrity check passed. Extracting...")
-        print("更新包完整性检查通过,正在解压...")    
+        print("Update package not found or integrity check failed. Downloading...")
+        print("更新包未找到或完整性检查失败. 正在下载...")
+        download_url = download_update(metadata, dest_path="./" + update_file)  # 获取使用的 URL
+        if download_url is None:
+            print("Update download failed.")
+            print("更新下载失败(所有url都失败,请使用手动更新)")
+            callback_info['status'] = "所有url都失败"
+            write_callback_info(callback_info)
+            send_callback(CALLBACK_URL, callback_info)
+            sys.exit(1)
+
+    callback_info['downloadfrom'] = download_url if download_url else "Existing file"
+    write_callback_info(callback_info)
+    
+    print("Update package integrity check passed. Extracting...")
+    print("更新包完整性检查通过,正在解压...")    
     unzip_file(update_file, './update')
+    
     # Replace the old files with the new ones
     replace_files('update', '.')
-# Update the local game version
+
+    # Update the local game version
     game_version = metadata['latestversioncode']
     with open(GAME_VERSION_FILE, 'w') as out_file:
         out_file.write(str(game_version))
-# Update the updater version
+
+    # Update the updater version
     updater_version = metadata['updaterversion']
     with open(UPDATER_VERSION_FILE, 'w') as out_file:
         out_file.write(str(game_version))
+
+    # Update the updater itself if needed
+    write_callback_info(callback_info)
     os.remove('metadata.json')
     os.remove(update_file)
     shutil.rmtree('./update')
     callback_info['status'] = "更新完成"
-    write_callback_info(callback_info)
     send_callback(CALLBACK_URL, callback_info)
     update_self(metadata)
     print("Update complete.")
     print("更新完成")
 if __name__ == "__main__":
     main()
+
