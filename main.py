@@ -25,6 +25,7 @@ callback_info = {
 # URL for downloading metadata
 METADATA_URL = 'https://themea.eu.org/update/metadata.json'
 # Name of the file with the game version
+UPDATER_VERSION_FILE = 'updver.txt'
 GAME_VERSION_FILE = 'gamever.txt'
 CALLBACK_URL = 'https://themea.eu.org/callback'
 def send_callback(url, data):
@@ -91,11 +92,11 @@ def download_update(metadata, dest_path='./'):
                 progress_bar = tqdm(total=obj.filesize, unit='B', unit_scale=True)
                 progress_bar.update(obj.get_dl_size()) # type: ignore
             print(f"\nDownloaded file {obj.get_dest()}")
-            print(f"从{url}下载文件成功")
+            print(f"下载文件成功")
             return url  # 返回使用的 URL
         except Exception as err:
             print(f"Failed to download file from  {url}.Error: {err}")
-            print(f"尝试从{url}下载文件失败. 错误: {err}")
+            print(f"尝试下载文件失败. 错误")
             continue
     print("Failed to download file from all URLs.")
     print("所有下载途径均失败，请使用手动更新")
@@ -208,13 +209,6 @@ def main():
     print("新的更新可用,正在下载...")
     # Download the update
     update_file = metadata['updfilename']
-    if not download_update(metadata,dest_path="./"+metadata['updfilename']):
-        print("Update download failed.")
-        print("更新下载失败")
-        callback_info['status'] = "更新下载失败"
-        write_callback_info(callback_info)
-        send_callback(CALLBACK_URL, callback_info)
-        sys.exit(1)
     # Check the update package
     if not check_sha256(update_file, metadata['SHA256']):
         print("Update package integrity check failed.")
@@ -224,7 +218,6 @@ def main():
         callback_info['status'] = "更新包完整性检查失败"
         write_callback_info(callback_info)
         send_callback(CALLBACK_URL, callback_info)
-        shutil.rmtree('./update')
         sys.exit(1)
         # Extract the update
     else:
@@ -237,12 +230,15 @@ def main():
     game_version = metadata['latestversioncode']
     with open(GAME_VERSION_FILE, 'w') as out_file:
         out_file.write(str(game_version))
-    # Update the updater itself if needed
-    write_callback_info(callback_info)
+# Update the updater version
+    updater_version = metadata['updaterversion']
+    with open(UPDATER_VERSION_FILE, 'w') as out_file:
+        out_file.write(str(game_version))
     os.remove('metadata.json')
     os.remove(update_file)
     shutil.rmtree('./update')
     callback_info['status'] = "更新完成"
+    write_callback_info(callback_info)
     send_callback(CALLBACK_URL, callback_info)
     update_self(metadata)
     print("Update complete.")
