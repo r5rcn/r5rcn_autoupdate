@@ -123,7 +123,6 @@ def get_public_ip():
     except Exception as e:
         print(f"Failed to get public IP. Error: {e}")
         return None
-
 def load_json(filename):
     try:
         with open(filename, 'r') as in_file:
@@ -148,20 +147,19 @@ def unzip_file(filename, path):
     with zipfile.ZipFile(filename, 'r') as zip_ref:
         zip_ref.extractall(path)
 def load_or_create_file(filename, line_number, metadata=None):
-    metadata = load_json('metadata.json')
     try:
         with open(filename, 'r') as in_file:
             lines = in_file.readlines()
             if len(lines) >= line_number:
                 return lines[line_number - 1].strip()
             else:
+                # If the requested line doesn't exist but the file does, return '0'
                 return "0"
     except FileNotFoundError as err:
         print(f"{filename} not found, creating one and setting content.")
         with open(filename, 'w') as out_file:
-            if line_number == 1:
-                out_file.write('0\n')
-            else:
+            out_file.write('0\n')
+            if metadata is not None:
                 out_file.write(f"{metadata['updaterversion']}\n")
         return '0'
 
@@ -273,4 +271,5 @@ def main():
     print("更新完成")
 if __name__ == "__main__":
     main()
+
 
