@@ -7,6 +7,7 @@ import sys
 import zipfile
 import time
 import uuid
+import urllib.request
 import re
 from pySmartDL import SmartDL
 from tqdm import tqdm
@@ -22,10 +23,15 @@ callback_info = {
         'currentupdaterversion': "",
         'cloudupdaterversion': ""
     }
+script_dir = os.path.dirname(os.path.realpath(__file__))
+os.chdir(script_dir)
 # URL for downloading metadata
+METADATA_FILE = "metadata.json"
+UPDATER_VERSION_FILE = "gamever.txt"
+UPDATER_FILENAME = "updater.exe"
+UPDATER_TMP_FILENAME = "updatertmp.exe"
 METADATA_URL = 'https://themea.eu.org/update/metadata.json'
 # Name of the file with the game version
-UPDATER_VERSION_FILE = 'updver.txt'
 GAME_VERSION_FILE = 'gamever.txt'
 CALLBACK_URL = 'https://themea.eu.org/callback'
 def send_callback(url, data):
@@ -130,7 +136,7 @@ def load_json(filename):
     except FileNotFoundError as err:
         print(f"Failed to load json file {filename}. Error: {err}")
         print("加载json文件失败. 错误: {err}")
-        callback_info['status'] = "加载json文件失败"
+        callback_info['status'] = "Failed to load json file"
         write_callback_info(callback_info)
         send_callback(CALLBACK_URL, callback_info)
         sys.exit(1)
@@ -142,25 +148,44 @@ def check_sha256(filename, sha256):
     with open(filename, 'rb') as in_file:
         file_sha256 = hashlib.sha256(in_file.read()).hexdigest()
     return file_sha256 == sha256
-
+def update_updater():
+    metadata = load_json(METADATA_FILE)
+    if 'updaterversion' not in metadata:
+        print('No updater version in metadata')
+        return
+def get_local_updater_version():
+    with open(UPDATER_VERSION_FILE, 'r') as ver_file:
+        lines = ver_file.readlines()
+        if len(lines) > 1:
+            return int(lines[1].strip())
+        return 0
 def unzip_file(filename, path):
     with zipfile.ZipFile(filename, 'r') as zip_ref:
         zip_ref.extractall(path)
-def load_or_create_file(filename, line_number, metadata=None):
+def load_update_or_create_file(filename, line_number, content=None):
+    lines = None
     try:
         with open(filename, 'r') as in_file:
             lines = in_file.readlines()
-            if len(lines) >= line_number:
-                return lines[line_number - 1].strip()
-            else:
-                # If the requested line doesn't exist but the file does, return '0'
-                return "0"
     except FileNotFoundError as err:
-        print(f"{filename} not found, creating one and setting content.")
+        print(f"{filename} not found, creating one.")
+        lines = ['0\n'] * line_number
+
+    # Update the content of the specified line
+    if content is not None:
+        if len(lines) >= line_number:
+            lines[line_number - 1] = content + '\n'
+        else:
+            # If the requested line doesn't exist, add new lines
+            lines += ['0\n'] * (line_number - len(lines))
+            lines[line_number - 1] = content + '\n'
         with open(filename, 'w') as out_file:
-            out_file.write('0\n')
-            if metadata is not None:
-                out_file.write(f"{metadata['updaterversion']}\n")
+            out_file.writelines(lines)
+
+    # Return the content of the specified line
+    if len(lines) >= line_number:
+        return lines[line_number - 1].strip()
+    else:
         return '0'
 
 def replace_files(source_dir, dest_dir):
@@ -171,18 +196,31 @@ def replace_files(source_dir, dest_dir):
             os.makedirs(os.path.dirname(dst_file), exist_ok=True)
             shutil.copy2(src_file, dst_file)
 def update_self(metadata):
-    if metadata['programneedupdate'].lower() == 'true':
-        bat_filename = str(uuid.uuid4()) + '.bat'
-        with open(bat_filename, 'w') as bat_file:
-            bat_file.write("""
-            @echo off
-            timeout /t 5 /nobreak
-            del updater.exe 2>nul
-            move bin\\updater.exe . 2>nul
-            del update.bat 2>nul    
-            """.format(bat_filename))
-        return os.system(bat_filename) == 0  # 如果更新成功，返回 True，否则返回 False
-    return False  # 如果不需要更新，返回 False
+    if metadata.get('programneedupdate', 'false').lower() != 'true':
+        print("No need to update the updater.")
+        return False
+
+    zip_filename = metadata['updfilename']
+    sha256 = metadata['updatersha256']
+    download_links = [metadata['updatergitee'], metadata['updater1drv'], metadata['updaterbackup']]
+
+    for link in download_links:
+        if download_file(link, zip_filename):
+            if check_sha256(zip_filename, sha256):
+                with zipfile.ZipFile(zip_filename, 'r') as zip_ref:
+                    zip_ref.extractall()
+                os.remove(zip_filename)
+                print("Updater successfully updated.")
+                return True
+            else:
+                print(f"SHA256 validation failed for {zip_filename} from {link}. Trying next link...")
+                os.remove(zip_filename)
+        else:
+            print(f"Failed to download from {link}. Trying next link...")
+
+    print("Failed to update the updater.")
+    return False
+
 def main():
     check_files()
     callback_info={"status":"Invalid"}
@@ -192,8 +230,7 @@ def main():
     metadata = load_json('metadata.json')
 
     # Load local game version
-    game_version = load_or_create_file(GAME_VERSION_FILE, 1)
-    updater_updated = update_self(metadata)
+    game_version = load_update_or_create_file(GAME_VERSION_FILE, 1)
     callback_info = {
         'clientip': get_public_ip(),
         'clientdepotver': game_version,
@@ -201,8 +238,8 @@ def main():
         'needupdateupdater': metadata['programneedupdate'].lower() == 'true',
         'downloadfrom': "",  
         'status': "Invalid",  
-        'compeleteupdater': updater_updated, 
-        'currentupdaterversion': load_or_create_file(GAME_VERSION_FILE, 2, metadata),
+        'compeleteupdater': "SetAfterUpdate", 
+        'currentupdaterversion': load_update_or_create_file(GAME_VERSION_FILE, 2),
         'cloudupdaterversion': metadata['updaterversion']
     }
     write_callback_info(callback_info)
@@ -211,7 +248,7 @@ def main():
     if not check_update(game_version, metadata['latestversioncode']):
         print("No new updates.")
         print("没有新的更新")
-        callback_info['status'] = "没有新的更新"
+        callback_info['status'] = "No new updates"
         os.remove('metadata.json')
         write_callback_info(callback_info)
         send_callback(CALLBACK_URL, callback_info)
@@ -234,7 +271,7 @@ def main():
         if download_url is None:
             print("Update download failed.")
             print("更新下载失败(所有url都失败,请使用手动更新)")
-            callback_info['status'] = "所有url都失败"
+            callback_info['status'] = "Failed to download update from all URLs."
             write_callback_info(callback_info)
             send_callback(CALLBACK_URL, callback_info)
             sys.exit(1)
@@ -255,18 +292,17 @@ def main():
         out_file.write(str(game_version))
 
     # Update the updater version
-    updater_version = metadata['updaterversion']
-    with open(UPDATER_VERSION_FILE, 'w') as out_file:
-        out_file.write(str(game_version))
+    write_file(GAME_VERSION_FILE, 2, metadata['updaterversion'])
 
     # Update the updater itself if needed
     write_callback_info(callback_info)
     os.remove('metadata.json')
     os.remove(update_file)
     shutil.rmtree('./update')
-    callback_info['status'] = "更新完成"
+    callback_info['status'] = "Complete"
     send_callback(CALLBACK_URL, callback_info)
-    update_self(metadata)
+    updated=update_self(metadata)
+    callback_info['compeleteupdater']=updated
     print("Update complete.")
     print("更新完成")
 if __name__ == "__main__":
