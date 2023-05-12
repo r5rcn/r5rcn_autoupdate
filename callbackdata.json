@@ -1,0 +1,11 @@
+{
+"clientip":"客户端公网IP",
+"clientdepotver":"当前目录下gamever.txt的内容，如果txt不存在记得处理",
+"clouddepotver":"metadatajson中latestversioncode的值",
+"needupdateupdater":"布尔值，读取metadatajson中programneedupdate的值",
+"downloadfrom":"最终下载的地址",
+"compelete":"布尔值，是否更新完成游戏本体",
+"compeleteupdater":"是否更新完成更新器",
+"currentupdaterversion":"更新器的当前版本，使用win32api获取",
+"cloudupdaterversion":"metadata.json中updaterversion的值"
+}

@@ -3,21 +3,38 @@ import os
 import shutil
 import hashlib
 import requests
-from datetime import datetime
 import sys
 import zipfile
 import time
 import uuid
+import re
 from pySmartDL import SmartDL
-import ctypes
 from tqdm import tqdm
-
+CALLBACK_INFO_FILE = 'callback_info.json'
 # URL for downloading metadata
+callback_info = {
+        'clientip': "",
+        'clientdepotver': "",
+        'clouddepotver': "",
+        'needupdateupdater': "",
+        'downloadfrom': "",  
+        'status': "Invalid",  
+        'compeleteupdater': "", 
+        'currentupdaterversion': "",
+        'cloudupdaterversion': ""
+    }
 METADATA_URL = 'https://themea.eu.org/update/metadata.json'
 # Name of the file with the game version
 GAME_VERSION_FILE = 'gamever.txt'
-# set user agent of requests
-user_agent = {'User-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/112.0'}
+CALLBACK_URL = 'https://themea.eu.org/callback'
+def send_callback(url, data):
+    try:
+        response = requests.post(url, json=data)
+        response.raise_for_status()  # 如果响应的状态码不是 200，就会抛出异常
+    except requests.RequestException as err:
+        print(f"Failed to send data to server. Error: {err}")
+        return False
+    return True
 def load_game_version():
     try:
         with open(GAME_VERSION_FILE, 'r') as in_file:
@@ -28,12 +45,13 @@ def load_game_version():
         with open(GAME_VERSION_FILE, 'w') as out_file:
             out_file.write('0')
         return 0
-    
-def is_admin():
+def write_callback_info(data):
     try:
-        return ctypes.windll.shell32.IsUserAnAdmin()
-    except:
-        return False
+        with open(CALLBACK_INFO_FILE, 'w') as out_file:
+            json.dump(data, out_file)
+    except Exception as err:
+        print(f"Failed to write callback information. Error: {err}")
+        print(f"写入回调信息失败. 错误")
 
 def download_file(url, filename):
     try:
@@ -48,7 +66,7 @@ def download_file(url, filename):
             progress_bar.close()
     except requests.RequestException as err:
         print(f"Failed to download file from {url}. Error: {err}")
-        print(f"尝试从{url}下载文件失败. 错误: {err}")
+        print(f"下载文件失败. 错误")
         return False
     return True
 def check_files():
@@ -61,27 +79,38 @@ def check_files():
             time.sleep(10)
             sys.exit(1)
 
-def download_update(metadata,dest_path='./'):
+def download_update(metadata, dest_path='./'):
     urls = [metadata['1drv'], metadata['1drvback'], metadata['github']]
     for url in urls:
         try:
             print(f"Trying to download file from {url}...")
-            print(f"尝试从{url}下载文件...")
+            print(f"尝试下载文件...")
             obj = SmartDL(url, dest=dest_path)
             obj.start()
             while not obj.isFinished():
                 progress_bar = tqdm(total=obj.filesize, unit='B', unit_scale=True)
-                progress_bar.update(obj.get_dl_size())
+                progress_bar.update(obj.get_dl_size()) # type: ignore
             print(f"\nDownloaded file {obj.get_dest()}")
             print(f"从{url}下载文件成功")
-            return True
+            return url  # 返回使用的 URL
         except Exception as err:
             print(f"Failed to download file from  {url}.Error: {err}")
             print(f"尝试从{url}下载文件失败. 错误: {err}")
             continue
     print("Failed to download file from all URLs.")
     print("所有下载途径均失败，请使用手动更新")
-    return False
+    return None  # 如果所有的 URL 都失败了，返回 None
+def get_public_ip():
+    try:
+        ip_response = requests.get("http://txt.go.sohu.com/ip/soip")
+        ip_address = re.findall(r'\d+.\d+.\d+.\d+', ip_response.text)
+        if ip_address:
+            return ip_address[0]
+        else:
+            return None
+    except Exception as e:
+        print(f"Failed to get public IP. Error: {e}")
+        return None
 
 def load_json(filename):
     try:
@@ -90,6 +119,7 @@ def load_json(filename):
     except FileNotFoundError as err:
         print(f"Failed to load json file {filename}. Error: {err}")
         print("加载json文件失败. 错误: {err}")
+        callback_info['status'] = "加载json文件失败"
         sys.exit(1)
 
 def check_update(version, latest_version):
@@ -103,7 +133,15 @@ def check_sha256(filename, sha256):
 def unzip_file(filename, path):
     with zipfile.ZipFile(filename, 'r') as zip_ref:
         zip_ref.extractall(path)
-
+def load_or_create_file(filename):
+    try:
+        with open(filename, 'r') as in_file:
+            return in_file.read().strip()
+    except FileNotFoundError as err:
+        print(f"{filename} not found, creating one and set content to 0.")
+        with open(filename, 'w') as out_file:
+            out_file.write('0')
+        return '0'
 
 def replace_files(source_dir, dest_dir):
     for root, dirs, files in os.walk(source_dir):
@@ -112,25 +150,6 @@ def replace_files(source_dir, dest_dir):
             dst_file = os.path.join(dest_dir, os.path.relpath(src_file, source_dir))
             os.makedirs(os.path.dirname(dst_file), exist_ok=True)
             shutil.copy2(src_file, dst_file)
-
-def modify_hosts(ip, domain):
-    hosts_file_path = r"C:\\Windows\\System32\\drivers\\etc\\hosts"
-    backup_hosts_file_path = r"C:\\Windows\\System32\\drivers\etc\\hosts.backup"
-    
-    # Back up the original hosts file
-    shutil.copyfile(hosts_file_path, backup_hosts_file_path)
-    
-    with open(hosts_file_path, 'a') as file:
-        file.write(f"\n{ip} {domain}")
-def restore_hosts():
-    hosts_file_path = r"C:\\Windows\\System32\\drivers\\etc\\hosts"
-    backup_hosts_file_path = r"C:\\Windows\\System32\\drivers\\etc\\hosts.backup"
-    
-    # Restore the original hosts file
-    if os.path.exists(backup_hosts_file_path):
-        shutil.copyfile(backup_hosts_file_path, hosts_file_path)
-        os.remove(backup_hosts_file_path)
-
 def update_self(metadata):
     if metadata['programneedupdate'].lower() == 'true':
         bat_filename = str(uuid.uuid4()) + '.bat'
@@ -142,33 +161,45 @@ def update_self(metadata):
             move bin\\updater.exe . 2>nul
             del update.bat 2>nul    
             """.format(bat_filename))
-        os.system(bat_filename)
-
-if is_admin():
-    metadata = load_json('metadata.json')
-    #modify_hosts(metadata['1drvip'], "nyaamo-my.sharepoint.com")
-    #modify_hosts(metadata['githubip'], "objects.githubusercontent.com")
-    pass
-else:
-    # Re-run the program with admin rights
-    # ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
-    # 下面这句没用，但是不加会报错
-    block=0
+        return os.system(bat_filename) == 0  # 如果更新成功，返回 True，否则返回 False
+    return False  # 如果不需要更新，返回 False
 def main():
     check_files()
     # Download metadata
     download_file(METADATA_URL,'metadata.json')
     metadata = load_json('metadata.json')
+    download_url = download_update(metadata, dest_path="./" + metadata['updfilename'])  # 获取使用的 URL
+    if download_url is None:
+        print("Update download failed.")
+        print("更新下载失败(所有url都失败,请使用手动更新)")
+        sys.exit(1)
+        callback_info['status'] = "所有url都失败"
     # Load local game version
     game_version = load_game_version()
-
+    updater_updated = update_self(metadata)
+    callback_info = {
+        'clientip': get_public_ip(),
+        'clientdepotver': game_version,
+        'clouddepotver': metadata['latestversioncode'],
+        'needupdateupdater': metadata['programneedupdate'].lower() == 'true',
+        'downloadfrom': download_url,  
+        'status': "Invalid",  
+        'compeleteupdater': updater_updated, 
+        'currentupdaterversion': load_or_create_file('./updver.txt'),
+        'cloudupdaterversion': metadata['updaterversion']
+    }
+    write_callback_info(callback_info)
    # Check for updates
     if not check_update(game_version, metadata['latestversioncode']):
         print("No new updates.")
         print("没有新的更新")
+        callback_info['status'] = "没有新的更新"
         os.remove('metadata.json')
         sys.exit(0)
-
+        callback_info['compelete'] = True
+        callback_info['compeleteupdater'] = True
+        write_callback_info(callback_info)
+        sys.exit(0)
     print("New update available. Downloading...")
     print("新的更新可用,正在下载...")
     # Download the update
@@ -176,11 +207,12 @@ def main():
     if not download_update(metadata,dest_path="./"+metadata['updfilename']):
         print("Update download failed.")
         print("更新下载失败")
+        callback_info['status'] = "更新下载失败"
         sys.exit(1)
-
     # Check the update package
     if not check_sha256(update_file, metadata['SHA256']):
         print("Update package integrity check failed.")
+        print("更新包完整性检查失败")
         os.remove('metadata.json')
         os.remove(update_file)
         shutil.rmtree('./update')
@@ -190,23 +222,23 @@ def main():
         print("Update package integrity check passed. Extracting...")
         print("更新包完整性检查通过,正在解压...")    
     unzip_file(update_file, './update')
-
     # Replace the old files with the new ones
     replace_files('update', '.')
-
 # Update the local game version
     game_version = metadata['latestversioncode']
     with open(GAME_VERSION_FILE, 'w') as out_file:
         out_file.write(str(game_version))
-
     # Update the updater itself if needed
     update_self(metadata)
-    #restore_hosts()
+    callback_info['compelete'] = True
+    callback_info['compeleteupdater'] = True
+    write_callback_info(callback_info)
     os.remove('metadata.json')
     os.remove(update_file)
     shutil.rmtree('./update')
+    callback_info['status'] = "更新完成"
+    send_callback(CALLBACK_URL, callback_info)
     print("Update complete.")
     print("更新完成")
-
 if __name__ == "__main__":
     main()
