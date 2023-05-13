@@ -42,6 +42,13 @@ def send_callback(url, data):
         print(f"Failed to send data to server. Error: {err}")
         return False
     return True
+def create_rename_bat():
+    with open('rename.bat', 'w') as file:
+        file.write('@echo off\n')
+        file.write('echo 请勿关闭此窗口，否则会造成可能的文件损坏...\n')
+        file.write('timeout /t 3 /nobreak > nul\n')
+        file.write('del updater.exe\n')
+        file.write('rename updatertmp.exe updater.exe\n')
 def load_game_version():
     try:
         with open(GAME_VERSION_FILE, 'r') as in_file:
@@ -196,30 +203,54 @@ def replace_files(source_dir, dest_dir):
             os.makedirs(os.path.dirname(dst_file), exist_ok=True)
             shutil.copy2(src_file, dst_file)
 def update_self(metadata):
-    if metadata.get('programneedupdate', 'false').lower() != 'true':
-        print("No need to update the updater.")
-        return False
-
-    zip_filename = metadata['updfilename']
-    sha256 = metadata['updatersha256']
-    download_links = [metadata['updatergitee'], metadata['updater1drv'], metadata['updaterbackup']]
-
-    for link in download_links:
-        if download_file(link, zip_filename):
-            if check_sha256(zip_filename, sha256):
-                with zipfile.ZipFile(zip_filename, 'r') as zip_ref:
-                    zip_ref.extractall()
-                os.remove(zip_filename)
-                print("Updater successfully updated.")
-                return True
+    try:
+        gamever_filename = 'gamever.txt'
+        if os.path.isfile(gamever_filename):
+            with open(gamever_filename, 'r') as file:
+                lines = file.readlines()
+            if len(lines) >= 2:
+                local_updater_version = int(lines[1])
             else:
-                print(f"SHA256 validation failed for {zip_filename} from {link}. Trying next link...")
-                os.remove(zip_filename)
+                local_updater_version = 0
         else:
-            print(f"Failed to download from {link}. Trying next link...")
-
-    print("Failed to update the updater.")
-    return False
+            local_updater_version = 0
+        
+        remote_updater_version = int(metadata['updaterversion'])
+        
+        if remote_updater_version > local_updater_version:
+            for download_url in [metadata['updatergitee'], metadata['updater1drv'], metadata['updaterbackup']]:
+                try:
+                    response = requests.get(download_url, stream=True)
+                    if response.status_code == 200:
+                        with open('updater.zip', 'wb') as file:
+                            for chunk in response.iter_content(chunk_size=1024):
+                                file.write(chunk)
+                                
+                        with open('updater.zip', 'rb') as file:
+                            file_hash = hashlib.sha256(file.read()).hexdigest()
+                            
+                        if file_hash == metadata['updatersha256']:
+                            with zipfile.ZipFile('updater.zip', 'r') as zip_ref:
+                                zip_ref.extractall('.')
+                            os.remove('updater.zip')
+                            create_rename_bat()
+                            os.system('start rename.bat')
+                            with open(gamever_filename, 'w') as file:
+                                file.write(str(metadata['gameversion']) + '\n')
+                                file.write(str(metadata['updaterversion']) + '\n')
+                            callback_info['compeleteupdater'] = 'True'
+                            break
+                        else:
+                            os.remove('updater.zip')
+                            raise Exception('File hash does not match.')
+                    else:
+                        raise Exception('Download failed.')
+                except Exception as e:
+                    print('Failed to update from ' + download_url + '. Reason: ' + str(e))
+        else:
+            print('No need to update.')
+    except Exception as e:
+        print('Failed to update self. Reason: ' + str(e))
 
 def main():
     check_files()
@@ -292,20 +323,17 @@ def main():
         out_file.write(str(game_version))
 
     # Update the updater version
-    write_file(GAME_VERSION_FILE, 2, metadata['updaterversion'])
-
+    load_update_or_create_file(GAME_VERSION_FILE, 2, metadata['updaterversion'])
     # Update the updater itself if needed
     write_callback_info(callback_info)
     os.remove('metadata.json')
     os.remove(update_file)
     shutil.rmtree('./update')
     callback_info['status'] = "Complete"
+    callback_info['compeleteupdater']='Compeleted All Steps,But unsure if the updater is updated.'
     send_callback(CALLBACK_URL, callback_info)
-    updated=update_self(metadata)
-    callback_info['compeleteupdater']=updated
     print("Update complete.")
     print("更新完成")
+    update_self(metadata)
 if __name__ == "__main__":
     main()
-
-
