@@ -48,6 +48,8 @@ def create_rename_bat():
         file.write('echo 请勿关闭此窗口，否则会造成可能的文件损坏...\n')
         file.write('timeout /t 3 /nobreak > nul\n')
         file.write('del updater.exe\n')
+        file.write('del metadata.json\n')
+        file.write('del callback_info.json\n')
         file.write('rename updatertmp.exe updater.exe\n')
 def load_game_version():
     try:
@@ -203,19 +205,17 @@ def replace_files(source_dir, dest_dir):
             os.makedirs(os.path.dirname(dst_file), exist_ok=True)
             shutil.copy2(src_file, dst_file)
 def update_self(metadata):
-    try:
-        gamever_filename = 'gamever.txt'
-        if os.path.isfile(gamever_filename):
-            with open(gamever_filename, 'r') as file:
-                lines = file.readlines()
-            if len(lines) >= 2:
-                local_updater_version = int(lines[1])
-            else:
-                local_updater_version = 0
-        else:
-            local_updater_version = 0
-        
+    gamever_filename = 'gamever.txt'
+    local_updater_version = 0
+
+    if os.path.isfile(gamever_filename):
+        with open(gamever_filename, 'r') as file:
+            lines = file.readlines()
+        if len(lines) >= 2 and lines[1].strip().isdigit():
+            local_updater_version = int(lines[1])
+
         remote_updater_version = int(metadata['updaterversion'])
+
         
         if remote_updater_version > local_updater_version:
             for download_url in [metadata['updatergitee'], metadata['updater1drv'], metadata['updaterbackup']]:
@@ -246,11 +246,9 @@ def update_self(metadata):
                     else:
                         raise Exception('Download failed.')
                 except Exception as e:
-                    print('Failed to update from ' + download_url + '. Reason: ' + str(e))
+                    print('Failed to update updater from ' + download_url + '. Reason: ' + str(e))
         else:
             print('No need to update.')
-    except Exception as e:
-        print('Failed to update self. Reason: ' + str(e))
 
 def main():
     check_files()
@@ -277,12 +275,12 @@ def main():
 
     # Check for updates
     if not check_update(game_version, metadata['latestversioncode']):
-        print("No new updates.")
-        print("没有新的更新")
+        print("No new updates, but updater may need to be updated.")
+        print("没有新的更新,但是更新器可能需要更新，如果没有反应请勿在30分钟内关闭程序.")
         callback_info['status'] = "No new updates"
-        os.remove('metadata.json')
         write_callback_info(callback_info)
         send_callback(CALLBACK_URL, callback_info)
+        update_self(metadata)
         sys.exit(0)
     
     print("New update available. Checking for update package...")
