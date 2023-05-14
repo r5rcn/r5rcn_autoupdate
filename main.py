@@ -345,6 +345,7 @@ def main():
     download_url = None
 
     # Check if update file already exists
+    os.chdir(os.path.dirname(os.path.realpath(sys.argv[0])))
     if os.path.exists(update_file) and check_sha256(update_file, metadata['SHA256']):
         log.info("更新包已存在且完整性检查通过.")
     else:
