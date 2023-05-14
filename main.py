@@ -9,6 +9,7 @@ import time
 import uuid
 import urllib.request
 import re
+import logging
 from pySmartDL import SmartDL
 from tqdm import tqdm
 CALLBACK_INFO_FILE = 'callback_info.json'
@@ -80,8 +81,7 @@ def write_callback_info(data):
     except Exception as err:
         print(f"Failed to write callback information. Error: {err}")
         print(f"写入回调信息失败. 错误")
-def is_harukab_rbq():
-    return True
+
 def download_file(url, filename):
     try:
         with requests.get(url, stream=True) as response:
@@ -280,7 +280,7 @@ def main():
         'downloadfrom': "",  
         'status': "Invalid",  
         'compeleteupdater': "SetAfterUpdate", 
-        'currentupdaterversion': load_update_or_create_file(GAME_VERSION_FILE, 2),
+        'currentupdaterversion': game_version,
         'cloudupdaterversion': metadata['updaterversion']
     }
     write_callback_info(callback_info)
@@ -308,7 +308,10 @@ def main():
     else:
         print("Update package not found or integrity check failed. Downloading...")
         print("更新包未找到或完整性检查失败. 正在下载...()")
-        os.remove(metadata['updfilename'])  # If the file exists but integrity check failed,remove it
+        try :
+            os.remove(update_file)
+        except:
+            logging.error("删除文件失败")
         download_url = download_update(metadata, dest_path="./" + update_file)  # 获取使用的 URL
         if download_url is None:
             print("Update download failed.")
@@ -348,3 +351,5 @@ def main():
     update_self(metadata)
 if __name__ == "__main__":
     main()
+
+
