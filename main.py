@@ -15,19 +15,7 @@ from tqdm import tqdm
 import logging
 import colorlog
 CALLBACK_INFO_FILE = 'callback_info.json'
-callback_info = {
-        'clientip': "",
-        'clientdepotver': "",
-        'clouddepotver': "",
-        'needupdateupdater': "",
-        'downloadfrom': "",  
-        'status': "Invalid",  
-        'compeleteupdater': "", 
-        'currentupdaterversion': "",
-        'cloudupdaterversion': ""
-    }
-script_dir = os.path.dirname(os.path.realpath(__file__))
-os.chdir(script_dir)
+os.chdir(os.path.dirname(os.path.realpath(sys.argv[0])))
 # URL for downloading metadata
 METADATA_FILE = "metadata.json"
 UPDATER_VERSION_FILE = "gamever.txt"
@@ -140,13 +128,18 @@ def download_file(url, filename):
         return False
     return True
 def check_files():
+    os.chdir(os.path.dirname(os.path.realpath(sys.argv[0])))
     files_to_check = ["r5apex.exe"]
-
+    log.info("当前工作目录:"+os.getcwd())
     for file in files_to_check:
         if not os.path.isfile(file):
-            log.error(f"请将程序放在游戏根目录下.")
-            time.sleep(10)
-            sys.exit(1)
+            log.error(f"请将程序放在游戏根目录下，若您确信程序处于正确目录，请输入yes继续")
+            confirm = input("是否继续？(yes/no)")
+            if confirm.lower() == 'yes':
+                return
+            else:
+                sys.exit(1)
+            
 
 def download_update(metadata, dest_path='./'):
     urls = [metadata['1drv'], metadata['1drvback'], metadata['github']]
@@ -176,9 +169,20 @@ def get_public_ip():
     except Exception as e:
         log.error(f"获取IP失败，错误： {e}")
         return None
+callback_info = {
+        'clientip': get_public_ip(),
+        'clientdepotver': get_game_or_updater_version(1),
+        'clouddepotver': "not_loaded",
+        'needupdateupdater': "",
+        'downloadfrom': "",  
+        'status': "Invalid",  
+        'compeleteupdater': "", 
+        'currentupdaterversion': get_game_or_updater_version(2),
+        'cloudupdaterversion': ""
+    }
 def load_json(filename):
     try:
-        with open(filename, 'r') as in_file:
+        with open(filename, 'r',encoding='utf-8') as in_file:
             return json.load(in_file)
     except FileNotFoundError as err:
         log.error("加载文件{filename}失败. 错误: {err}")
@@ -234,8 +238,8 @@ def load_update_or_create_file(filename, line_number, content=None):
         return lines[line_number - 1].strip()
     else:
         return '0'
-def show_announcement(annoucement):
-    log.info(annoucement)
+def show_announcement(announcement):
+    log.info(announcement)
 def replace_files(source_dir, dest_dir):
     for root, dirs, files in os.walk(source_dir):
         for file in files:
@@ -303,14 +307,12 @@ def update_self(metadata):
         else:
             log.info('更新器无需更新.')
 def main():
+    check_files()
+    download_file(METADATA_URL,'metadata.json')
+    # Download metadata
+    log.info("下载元数据中...")
     metadata = load_json('metadata.json')
     show_announcement(metadata['announcement'])
-    check_files()
-    callback_info={"status":"Invalid"}
-    # Download metadata
-    # print("下载元数据中...")
-    log.info("下载元数据中...")
-    download_file(METADATA_URL,'metadata.json')
 
     # Load local game version
     with open (GAME_VERSION_FILE,'r') as file:
