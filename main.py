@@ -83,8 +83,6 @@ def load_game_version():
         with open(GAME_VERSION_FILE, 'r') as in_file:
             return int(in_file.read().strip())
     except FileNotFoundError as err:
-        # print(f"Game version file not found, creating one and set version to 0.")
-        log.info(f"Game version file not found, creating one and set version to 0.")
         # print(f"游戏版本文件未找到,正在创建并设置版本为0.")
         log.info(f"游戏版本文件未找到,正在创建并设置版本为0.")
         with open(GAME_VERSION_FILE, 'w') as out_file:
@@ -106,10 +104,8 @@ def write_callback_info(data):
         with open(CALLBACK_INFO_FILE, 'w') as out_file:
             json.dump(data, out_file)
     except Exception as err:
-        # print(f"Failed to write callback information. Error: {err}")
-        log.error(f"Failed to write callback information. Error: {err}")
         # print(f"写入回调信息失败. 错误")
-        log.error(f"写入回调信息失败. 错误")
+        log.error(f"写入回调信息失败. 错误：{err}")
 def is_harukab_rbq():
     return True
 def download_file(url, filename):
@@ -125,9 +121,8 @@ def download_file(url, filename):
             progress_bar.close()
     except requests.RequestException as err:
         # print(f"Failed to download file from {url}. Error: {err}")
-        log.error(f"Failed to download file from {url}. Error: {err}")
         # print(f"下载文件失败. 错误")
-        log.error(f"下载文件失败. 错误")
+        log.error(f"从{url}下载文件失败. 错误：{err}")
         return False
     return True
 def check_files():
@@ -136,7 +131,6 @@ def check_files():
     for file in files_to_check:
         if not os.path.isfile(file):
             # print(f"Error: {file} not found. Please place the program in the game root directory.")
-            log.error(f"Error: {file} not found. Please place the program in the game root directory.")
             # print(f"请将程序放在游戏根目录下.")
             log.error(f"请将程序放在游戏根目录下.")
             time.sleep(10)
@@ -147,27 +141,23 @@ def download_update(metadata, dest_path='./'):
     for url in urls:
         try:
             # print(f"Trying to download file from {url}...")
-            log.info(f"Trying to download file from {url}...")
             # print(f"尝试下载文件...")
-            log.info(f"尝试下载文件...")
+            log.info(f"尝试从{url}下载文件...")
             obj = SmartDL(url, dest=dest_path)
             obj.start()
             while not obj.isFinished():
                 progress_bar = tqdm(total=obj.filesize, unit='B', unit_scale=True)
                 progress_bar.update(obj.get_dl_size()) # type: ignore
             # print(f"\nDownloaded file {obj.get_dest()}")
-            log.info(f"\nDownloaded file {obj.get_dest()}")
+            log.info(f"\n下载完成： {obj.get_dest()}")
             # print(f"下载文件成功")
-            log.info(f"下载文件成功")
             return url  # 返回使用的 URL
         except Exception as err:
             # print(f"Failed to download file from  {url}.Error: {err}")
-            log.error(f"Failed to download file from  {url}.Error: {err}")
             # print(f"尝试下载文件失败. 错误")
-            log.error(f"尝试下载文件失败. 错误")
+            log.error(f"尝试从{url}下载文件失败. 错误：{err}")
             continue
     # print("Failed to download file from all URLs.")
-    log.warning("Failed to download file from all URLs.")
     # print("所有下载途径均失败，请使用手动更新")
     log.warning("所有下载途径均失败，请使用手动更新")
     return None  # 如果所有的 URL 都失败了，返回 None
@@ -181,7 +171,7 @@ def get_public_ip():
             return None
     except Exception as e:
         # print(f"Failed to get public IP. Error: {e}")
-        log.error(f"Failed to get public IP. Error: {e}")
+        log.error(f"获取IP失败，错误： {e}")
         return None
 def load_json(filename):
     try:
@@ -189,9 +179,8 @@ def load_json(filename):
             return json.load(in_file)
     except FileNotFoundError as err:
         # print(f"Failed to load json file {filename}. Error: {err}")
-        log.error(f"Failed to load json file {filename}. Error: {err}")
         # print("加载json文件失败. 错误: {err}")
-        log.error("加载json文件失败. 错误: {err}")
+        log.error("加载文件{filename}失败. 错误: {err}")
         callback_info['status'] = "Failed to load json file"
         write_callback_info(callback_info)
         send_callback(CALLBACK_URL, callback_info)
@@ -226,7 +215,7 @@ def load_update_or_create_file(filename, line_number, content=None):
             lines = in_file.readlines()
     except FileNotFoundError as err:
         # print(f"{filename} not found, creating one.")
-        log.info(f"{filename} not found, creating one.")
+        log.info(f"{filename} 未找到, 正在创建.")
         lines = ['0\n'] * line_number
 
     # Update the content of the specified line
@@ -309,10 +298,10 @@ def update_self(metadata):
                         raise Exception('下载失败.')
                 except Exception as e:
                     # print('Failed to update updater from ' + download_url + '. Reason: ' + str(e))
-                    log.info('Failed to update updater from ' + download_url + '. Reason: ' + str(e))
+                    log.error('从 ' + download_url + '更新更新器失败. 原因： ' + str(e))
         else:
             # print('No need to update.')
-            log.info('No need to update.')
+            log.info('更新器无需更新.')
 def main():
     check_files()
     callback_info={"status":"Invalid"}
@@ -340,7 +329,6 @@ def main():
     # Check for updates
     if not check_update(game_version, metadata['latestversioncode']):
         # print("No new updates, but updater may need to be updated.")
-        log.info("No new updates, but updater may need to be updated.")
         # print("游戏没有新的更新,但是更新器可能需要更新，如果没有反应请勿在5分钟内关闭程序.")
         log.info("游戏没有新的更新,但是更新器可能需要更新，如果没有反应请勿在5分钟内关闭程序.")
         callback_info['status'] = "No new updates"
@@ -350,7 +338,6 @@ def main():
         sys.exit(0)
     
     # print("New update available. Checking for update package...")
-    log.info("New update available. Checking for update package...")
     # print("新的更新可用,正在检查更新包...")
     log.info("新的更新可用,正在检查更新包...")
     # Prepare for update
@@ -360,19 +347,16 @@ def main():
     # Check if update file already exists
     if os.path.exists(update_file) and check_sha256(update_file, metadata['SHA256']):
         # print("Update package exists and integrity check passed.")
-        log.info("Update package exists and integrity check passed.")
         # print("更新包已存在且完整性检查通过.")
         log.info("更新包已存在且完整性检查通过.")
     else:
         # print("Update package not found or integrity check failed. Downloading...")
-        log.info("Update package not found or integrity check failed. Downloading...")
         # print("更新包未找到或完整性检查失败. 正在下载...()")
         log.info("更新包未找到或完整性检查失败. 正在下载...()")
         os.remove(metadata['updfilename'])  # If the file exists but integrity check failed,remove it
         download_url = download_update(metadata, dest_path="./" + update_file)  # 获取使用的 URL
         if download_url is None:
             # print("Update download failed.")
-            log.warning("Update download failed.")
             # print("更新下载失败(所有url都失败,请使用手动更新)")
             log.warning("更新下载失败(所有url都失败,请使用手动更新)")
             callback_info['status'] = "Failed to download update from all URLs."
@@ -384,7 +368,6 @@ def main():
     write_callback_info(callback_info)
     
     # print("Update package integrity check passed. Extracting...")
-    log.info("Update package integrity check passed. Extracting...")
     # print("更新包完整性检查通过,正在解压...")
     log.info("更新包完整性检查通过,正在解压...") 
     unzip_file(update_file, './update')
@@ -408,11 +391,8 @@ def main():
     callback_info['compeleteupdater']='Compeleted All Steps,But unsure if the updater is updated.'
     send_callback(CALLBACK_URL, callback_info)
     # print("Update complete.")
-    log.info("Update complete.")
     # print("更新完成")
     log.info("更新完成")
     update_self(metadata)
 if __name__ == "__main__":
     main()
-
-
