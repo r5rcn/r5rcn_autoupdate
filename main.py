@@ -45,12 +45,13 @@ def send_callback(url, data):
 def create_rename_bat():
     with open('rename.bat', 'w') as file:
         file.write('@echo off\n')
-        file.write('echo 请勿关闭此窗口，否则会造成可能的文件损坏...\n')
+        file.write('echo 请勿关闭此窗口，否则会造成可能的游戏损坏...\n')
         file.write('timeout /t 3 /nobreak > nul\n')
         file.write('del updater.exe\n')
         file.write('del metadata.json\n')
         file.write('del callback_info.json\n')
         file.write('rename updatertmp.exe updater.exe\n')
+        file.write('exit\n')
 def load_game_version():
     try:
         with open(GAME_VERSION_FILE, 'r') as in_file:
@@ -79,13 +80,14 @@ def write_callback_info(data):
     except Exception as err:
         print(f"Failed to write callback information. Error: {err}")
         print(f"写入回调信息失败. 错误")
-
+def is_harukab_rbq():
+    return True
 def download_file(url, filename):
     try:
         with requests.get(url, stream=True) as response:
             response.raise_for_status()
             total_size = int(response.headers.get('content-length', 0))
-            progress_bar = tqdm(total=total_size, unit='iB', unit_scale=True)
+            progress_bar = tqdm.tqdm(total=total_size, unit='iB', unit_scale=True) # type: ignore
             with open(filename, 'wb') as out_file:
                 for chunk in response.iter_content(chunk_size=1024):
                     progress_bar.update(len(chunk))
@@ -160,7 +162,7 @@ def check_sha256(filename, sha256):
 def update_updater():
     metadata = load_json(METADATA_FILE)
     if 'updaterversion' not in metadata:
-        print('No updater version in metadata')
+        print('没有在元数据中找到更新器版本号,请检查元数据文件是否正确.')
         return
 def get_local_updater_version():
     with open(UPDATER_VERSION_FILE, 'r') as ver_file:
@@ -204,6 +206,8 @@ def replace_files(source_dir, dest_dir):
             dst_file = os.path.join(dest_dir, os.path.relpath(src_file, source_dir))
             os.makedirs(os.path.dirname(dst_file), exist_ok=True)
             shutil.copy2(src_file, dst_file)
+import tqdm
+
 def update_self(metadata):
     gamever_filename = 'gamever.txt'
     local_updater_version = 0
@@ -212,34 +216,43 @@ def update_self(metadata):
         with open(gamever_filename, 'r') as file:
             lines = file.readlines()
         if len(lines) >= 2 and lines[1].strip().isdigit():
-            local_updater_version = int(lines[1])
+            local_updater_version = int(lines[1].strip())
 
         remote_updater_version = int(metadata['updaterversion'])
 
-        
         if remote_updater_version > local_updater_version:
+            print("更新器发现新的更新!")  # 在检测到有新的更新时，输出一个提示语
             for download_url in [metadata['updatergitee'], metadata['updater1drv'], metadata['updaterbackup']]:
                 try:
                     response = requests.get(download_url, stream=True)
+                    total_size = int(response.headers.get('content-length', 0))
+                    progress_bar = tqdm.tqdm(total=total_size, unit='B', unit_scale=True, desc = "Downloading: ")
+                    
                     if response.status_code == 200:
                         with open('updater.zip', 'wb') as file:
                             for chunk in response.iter_content(chunk_size=1024):
                                 file.write(chunk)
-                                
+                                progress_bar.update(len(chunk))
+                        progress_bar.close()
+                        
                         with open('updater.zip', 'rb') as file:
                             file_hash = hashlib.sha256(file.read()).hexdigest()
                             
                         if file_hash == metadata['updatersha256']:
                             with zipfile.ZipFile('updater.zip', 'r') as zip_ref:
                                 zip_ref.extractall('.')
-                            os.remove('updater.zip')
-                            create_rename_bat()
-                            os.system('start rename.bat')
-                            with open(gamever_filename, 'w') as file:
-                                file.write(str(metadata['gameversion']) + '\n')
-                                file.write(str(metadata['updaterversion']) + '\n')
-                            callback_info['compeleteupdater'] = 'True'
-                            break
+                                os.remove('updater.zip')
+                                create_rename_bat()
+                                os.system('start rename.bat')
+                                with open(gamever_filename, 'r') as file:
+                                    lines = file.readlines()
+                                lines[1] = str(metadata['updaterversion']) + '\n'
+                                with open(gamever_filename, 'w') as file:
+                                    file.writelines(lines)
+                                callback_info['compeleteupdater'] = 'True'
+                                send_callback(CALLBACK_URL, callback_info)
+                                print("更新器马上更新完毕，弹出命令窗口是正常现象。")
+                                return  # 添加此行以在成功更新后返回
                         else:
                             os.remove('updater.zip')
                             raise Exception('File hash does not match.')
@@ -249,7 +262,6 @@ def update_self(metadata):
                     print('Failed to update updater from ' + download_url + '. Reason: ' + str(e))
         else:
             print('No need to update.')
-
 def main():
     check_files()
     callback_info={"status":"Invalid"}
@@ -276,7 +288,7 @@ def main():
     # Check for updates
     if not check_update(game_version, metadata['latestversioncode']):
         print("No new updates, but updater may need to be updated.")
-        print("没有新的更新,但是更新器可能需要更新，如果没有反应请勿在30分钟内关闭程序.")
+        print("游戏没有新的更新,但是更新器可能需要更新，如果没有反应请勿在5分钟内关闭程序.")
         callback_info['status'] = "No new updates"
         write_callback_info(callback_info)
         send_callback(CALLBACK_URL, callback_info)
@@ -295,7 +307,8 @@ def main():
         print("更新包已存在且完整性检查通过.")
     else:
         print("Update package not found or integrity check failed. Downloading...")
-        print("更新包未找到或完整性检查失败. 正在下载...")
+        print("更新包未找到或完整性检查失败. 正在下载...()")
+        os.remove(metadata['updfilename'])  # If the file exists but integrity check failed,remove it
         download_url = download_update(metadata, dest_path="./" + update_file)  # 获取使用的 URL
         if download_url is None:
             print("Update download failed.")
