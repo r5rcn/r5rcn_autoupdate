@@ -234,7 +234,8 @@ def load_update_or_create_file(filename, line_number, content=None):
         return lines[line_number - 1].strip()
     else:
         return '0'
-
+def show_announcement(annoucement):
+    log.info(annoucement)
 def replace_files(source_dir, dest_dir):
     for root, dirs, files in os.walk(source_dir):
         for file in files:
@@ -302,13 +303,14 @@ def update_self(metadata):
         else:
             log.info('更新器无需更新.')
 def main():
+    metadata = load_json('metadata.json')
+    show_announcement(metadata['announcement'])
     check_files()
     callback_info={"status":"Invalid"}
     # Download metadata
     # print("下载元数据中...")
     log.info("下载元数据中...")
     download_file(METADATA_URL,'metadata.json')
-    metadata = load_json('metadata.json')
 
     # Load local game version
     with open (GAME_VERSION_FILE,'r') as file:
