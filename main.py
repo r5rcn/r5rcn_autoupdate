@@ -9,6 +9,7 @@ import time
 import uuid
 import urllib.request
 import re
+import logging
 from pySmartDL import SmartDL
 from tqdm import tqdm
 import logging
@@ -273,7 +274,7 @@ def update_self(metadata):
                 try:
                     response = requests.get(download_url, stream=True)
                     total_size = int(response.headers.get('content-length', 0))
-                    progress_bar = tqdm.tqdm(total=total_size, unit='B', unit_scale=True, desc = "Downloading: ")
+                    progress_bar = tqdm.tqdm(total=total_size, unit='B', unit_scale=True, desc = "下载中... ")
                     
                     if response.status_code == 200:
                         with open('updater.zip', 'wb') as file:
@@ -303,9 +304,9 @@ def update_self(metadata):
                                 return  # 添加此行以在成功更新后返回
                         else:
                             os.remove('updater.zip')
-                            raise Exception('File hash does not match.')
+                            raise Exception('文件哈希不匹配.')
                     else:
-                        raise Exception('Download failed.')
+                        raise Exception('下载失败.')
                 except Exception as e:
                     # print('Failed to update updater from ' + download_url + '. Reason: ' + str(e))
                     log.info('Failed to update updater from ' + download_url + '. Reason: ' + str(e))
@@ -331,7 +332,7 @@ def main():
         'downloadfrom': "",  
         'status': "Invalid",  
         'compeleteupdater': "SetAfterUpdate", 
-        'currentupdaterversion': load_update_or_create_file(GAME_VERSION_FILE, 2),
+        'currentupdaterversion': game_version,
         'cloudupdaterversion': metadata['updaterversion']
     }
     write_callback_info(callback_info)
@@ -413,3 +414,5 @@ def main():
     update_self(metadata)
 if __name__ == "__main__":
     main()
+
+
