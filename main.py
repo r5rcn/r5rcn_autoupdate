@@ -158,6 +158,7 @@ def download_update(metadata, dest_path='./'):
             continue
     log.warning("所有下载途径均失败，请使用手动更新")
     return None  # 如果所有的 URL 都失败了，返回 None
+
 def get_public_ip():
     try:
         ip_response = requests.get("http://txt.go.sohu.com/ip/soip")
@@ -180,6 +181,7 @@ callback_info = {
         'currentupdaterversion': get_game_or_updater_version(2),
         'cloudupdaterversion': ""
     }
+
 def load_json(filename):
     try:
         with open(filename, 'r',encoding='utf-8') as in_file:
@@ -198,20 +200,24 @@ def check_sha256(filename, sha256):
     with open(filename, 'rb') as in_file:
         file_sha256 = hashlib.sha256(in_file.read()).hexdigest()
     return file_sha256 == sha256
+
 def update_updater():
     metadata = load_json(METADATA_FILE)
     if 'updaterversion' not in metadata:
         log.error('没有在元数据中找到更新器版本号,请检查元数据文件是否正确.')
         return
+    
 def get_local_updater_version():
     with open(UPDATER_VERSION_FILE, 'r') as ver_file:
         lines = ver_file.readlines()
         if len(lines) > 1:
             return int(lines[1].strip())
         return 0
+    
 def unzip_file(filename, path):
     with zipfile.ZipFile(filename, 'r') as zip_ref:
         zip_ref.extractall(path)
+
 def load_update_or_create_file(filename, line_number, content=None):
     lines = None
     try:
@@ -240,6 +246,7 @@ def load_update_or_create_file(filename, line_number, content=None):
         return '0'
 def show_announcement(announcement):
     log.info(announcement)
+
 def replace_files(source_dir, dest_dir):
     for root, dirs, files in os.walk(source_dir):
         for file in files:
@@ -346,6 +353,8 @@ def main():
 
     # Check if update file already exists
     os.chdir(os.path.dirname(os.path.realpath(sys.argv[0])))
+    # print(os.path.dirname(os.path.realpath(sys.argv[0])))
+    # print(os.path.exists(update_file))
     if os.path.exists(update_file) and check_sha256(update_file, metadata['SHA256']):
         log.info("更新包已存在且完整性检查通过.")
     else:
@@ -364,8 +373,14 @@ def main():
 
     callback_info['downloadfrom'] = download_url if download_url else "Existing file"
     write_callback_info(callback_info)
-    
-    log.info("更新包完整性检查通过,正在解压...") 
+    if os.path.exists(update_file) and check_sha256(update_file, metadata['SHA256']):
+        log.info("更新包完整性检查通过,正在解压...")
+    else :
+        log.warning("更新包完整性检查失败，请关闭程序后重新打开更新器下载更新包")
+        log.warning("本程序将在10s后退出...")
+        time.sleep(10)
+        sys.exit(1)
+
     unzip_file(update_file, './update')
     
     # Replace the old files with the new ones
