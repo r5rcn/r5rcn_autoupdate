@@ -378,6 +378,9 @@ def main():
     else :
         log.warning("更新包完整性检查失败，请关闭程序后重新打开更新器下载更新包")
         log.warning("本程序将在10s后退出...")
+        callback_info['status'] = "Update file integrity check failed."
+        write_callback_info(callback_info)
+        send_callback(CALLBACK_URL, callback_info)
         time.sleep(10)
         sys.exit(1)
 
