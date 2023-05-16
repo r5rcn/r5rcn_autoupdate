@@ -403,6 +403,6 @@ def main():
     # Update the updater version
     set_game_or_updater_version(metadata['updaterversion'], 2)
     update_self(metadata)
-    input('更新已完成，请输入任意键后退出')
+    input('更新已完成，请输入回车键后退出')
 if __name__ == "__main__":
     main()
