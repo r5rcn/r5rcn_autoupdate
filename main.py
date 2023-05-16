@@ -396,7 +396,6 @@ def main():
     os.remove(update_file)
     shutil.rmtree('./update')
     callback_info['status'] = "Complete"
-    callback_info['compeleteupdater']='Compeleted All Steps,But unsure if the updater is updated.'
     send_callback(CALLBACK_URL, callback_info)
     # Update the updater itself if needed
     log.info("游戏更新完成，但更新器自己可能需要更新，请在5分钟内不要关闭程序.")
