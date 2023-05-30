@@ -390,7 +390,7 @@ def main():
     replace_files('update', '.')
 
     # Update the local game version
-    set_game_or_updater_version(metadata['latestversioncode'],0)
+    set_game_or_updater_version(metadata['latestversioncode'], 1)
     write_callback_info(callback_info)
     os.remove('metadata.json')
     os.remove(update_file)
