@@ -110,8 +110,6 @@ def write_callback_info(data):
     except Exception as err:
         # print(f"写入回调信息失败. 错误")
         log.error(f"写入回调信息失败. 错误：{err}")
-def is_harukab_rbq():
-    return True
 def download_file(url, filename):
     try:
         with requests.get(url, stream=True) as response:
