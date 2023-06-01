@@ -22,6 +22,7 @@ UPDATER_VERSION_FILE = "gamever.txt"
 UPDATER_FILENAME = "updater.exe"
 UPDATER_TMP_FILENAME = "updatertmp.exe"
 METADATA_URL = 'https://themea.eu.org/update/metadata.json'
+USS_URL = "cnr5apex.cn"
 # Name of the file with the game version
 GAME_VERSION_FILE = 'gamever.txt'
 CALLBACK_URL = 'https://themea.eu.org/callback'
