@@ -33,7 +33,7 @@ jobs:
       shell: powershell
 
     - name: Build with PyInstaller
-      run: pyinstaller --onefile --name updater.exe main.py
+      run: pyinstaller --onefile -n updater.exe main.py
     - name: List files in dist
       run: |
           Get-ChildItem -Path ./dist
