@@ -1,6 +1,7 @@
 name: Build on changes to main.py
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - 'main.py'
