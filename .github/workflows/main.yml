@@ -1,0 +1,78 @@
+name: Build on changes to main.py
+
+on:
+  push:
+    paths:
+      - 'main.py'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.8
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: Get version
+      run: |
+        $version_line = Get-Content -Path main.py -First 1
+        $version = $version_line.TrimStart("# v")
+        echo "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+      shell: powershell
+
+    - name: Build with PyInstaller
+      run: pyinstaller --onefile main.py
+
+    - name: Zip the application
+      run: |
+        Compress-Archive -Path ./dist/updater.exe -DestinationPath ./dist/updater-${{ env.VERSION }}.zip
+      shell: powershell
+
+    - name: Compute SHA256
+      run: |
+        $sha256 = (Get-FileHash -Path ./dist/updater-${{ env.VERSION }}.zip -Algorithm SHA256).Hash
+        $sha256 | Out-File -FilePath ./dist/sha256.txt
+      shell: powershell
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ env.VERSION }}
+        release_name: Release ${{ env.VERSION }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      id: upload-release-asset 
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }} 
+        asset_path: ./dist/updater-${{ env.VERSION }}.zip
+        asset_name: updater-${{ env.VERSION }}.zip
+        asset_content_type: application/zip
+
+    - name: Upload SHA256
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }} 
+        asset_path: ./dist/sha256.txt
+        asset_name: sha256.txt
+        asset_content_type: text/plain
