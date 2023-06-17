@@ -33,6 +33,10 @@ jobs:
 
     - name: Build with PyInstaller
       run: pyinstaller --onefile main.py
+    - name: List files in dist
+      run: |
+          Get-ChildItem -Path ./dist
+      shell: powershell
 
     - name: Zip the application
       run: |
