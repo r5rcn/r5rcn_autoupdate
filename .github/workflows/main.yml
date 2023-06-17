@@ -72,6 +72,16 @@ jobs:
         asset_path: ./dist/updater-${{ env.VERSION }}.zip
         asset_name: updater-${{ env.VERSION }}.zip
         asset_content_type: application/zip
+    - name: Upload Release Asset-exe
+      id: upload-release-exe
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }} 
+        asset_path: ./dist/updater.exe
+        asset_name: updater-${{ env.VERSION }}.exe
+        asset_content_type: application/exe
 
     - name: Upload SHA256
       uses: actions/upload-release-asset@v1
