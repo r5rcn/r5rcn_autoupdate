@@ -247,6 +247,7 @@ def load_update_or_create_file(filename, line_number, content=None):
 def show_announcement(announcement):
     log.info(announcement)
 
+
 def replace_files(source_dir, dest_dir):
     for root, dirs, files in os.walk(source_dir):
         for file in files:
@@ -320,6 +321,7 @@ def main():
     log.info("下载元数据中...")
     metadata = load_json('metadata.json')
     show_announcement(metadata['announcement'])
+    show_announcement(metadata['announcement2'])
 
     # Load local game version
     with open (GAME_VERSION_FILE,'r') as file:
@@ -350,7 +352,6 @@ def main():
     # Prepare for update
     update_file = metadata['updfilename']
     download_url = None
-
     # Check if update file already exists
     os.chdir(os.path.dirname(os.path.realpath(sys.argv[0])))
     # print(os.path.dirname(os.path.realpath(sys.argv[0])))
@@ -402,6 +403,6 @@ def main():
     # Update the updater version
     set_game_or_updater_version(metadata['updaterversion'], 2)
     update_self(metadata)
-    input('更新已完成，请输入回车键后退出')
+    input('更新已完成，请按下回车键退出')
 if __name__ == "__main__":
     main()
