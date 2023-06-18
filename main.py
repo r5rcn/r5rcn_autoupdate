@@ -1,5 +1,5 @@
 # v1.1.1
-# 如若不需要触发Workflow工作流，记得提交信息里面包含[skip ci]，或者[ci skip]，方括号需要包含
+# 如若不需要触发Workflow工作流，记得提交信息里面包含[skip ci]，或者[ci skip]，方括号需要包含，别落下
 # 如若需要触发，必须修改版本号到下个版本
 import json
 import os
