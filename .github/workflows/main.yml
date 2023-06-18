@@ -11,6 +11,15 @@ jobs:
     runs-on: windows-latest
 
     steps:
+    - name: Check commit message
+      run: |
+        commit_msg=$(git log --format=%B -n 1 ${{ github.event.after }})
+        if [[ "${commit_msg}" == *"[skip ci]"* ]]; then
+          echo "Skipping build due to [skip ci] in the commit message"
+          exit 0
+        fi
+      shell: bash
+      
     - name: Checkout code
       uses: actions/checkout@v2
 
